@@ -63,12 +63,12 @@ class calendar extends service
 
 	protected function addFromIcs($ical, $calmetadata = array())
 	{
-		$events = $ical->eventsFromRange();
-		// output events as list
+		$events = $ical->eventsFromRange(false, '+1 year');
+		// output events as listj
 		foreach ($events as $event) {
 			$this->addData(array(
 				'start' => $ical->iCalDateToUnixTimestamp($event->dtstart),
-				'end' => $ical->iCalDateToUnixTimestamp($event->dtend),
+				'end' => $event->dtend != null ? $ical->iCalDateToUnixTimestamp($event->dtend) : $ical->iCalDateToUnixTimestamp($event->dtstart),
 				'title' => $event->summary,
 				'content' => str_replace("\\n", "\n", $event->description),
 				'where' => $event->location,

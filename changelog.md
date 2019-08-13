@@ -10,20 +10,25 @@
 - New: basic.color (supersedes basic.colordisc and basic.rgb) with new parameter 'colormodel' for HSV or HSL model and possibility to pass values as list in one item
 - New: status.badge (displays a notification badge)
 - New: basic.offset (button to increase or decrease a value)
+- New: device.roofwindow (to show and control a roof window)
 - New: device.uzsuicon (to control UZSU in smarthome.py and FHEM)
+- New: device.uzsugraph (to control UZSU in smarthome.py and FHEM)
 - New: calendar.waste (compact view of waste collection dates)
 - New: multimedia.audio (plays a soundfile)
 - New: plot.gauge
 - New: plot.pie
 - New: icon.cistern
+- New: icon.garagedoor
 - New: icon.heating (displays a heating colored with dynamic gradient)
-- basic.symbol: Can also be used to show text only and to render as link, mode extended to adaptable formula, and - most important - may have multiple states now (so eventually, no series of symbols is needed anymore to cover mutiple states)
-- plot.period: Among other things: merged functionality of plot.minmaxavg and plot.multiaxis into it, more options like logarithmic and boolean scale and units
+- New: îcon.roofwindow
+- basic.symbol: Can also be used to show text only and to render as link, mode extended to adaptable formula (including thresholds), and - most important - may have multiple states now (so eventually, no series of symbols is needed anymore to cover mutiple states)
+- plot.period: Among other things: merged functionality of plot.minmaxavg and plot.multiaxis into it, more options like logarithmic and boolean scale, units, an advanced zoom mode as in Highstock, individual count and mode per series and the possibility to set any additional chart options
 - plot.temprose: New parameters 'series_label' and 'unit'
+- plot.rtr: New parameters 'tmin', 'tmax' and 'state_max' (last one is used to set datatype of state item). Additionally the algorithm for guessing dataype has been improved.
 - basic.slider: New parameters 'value_display', 'min_display' and 'max_display'
 - device.blind & device.shutter: item_move is now optional
 - basic.shutter & device.shutter: min/max are renamed to value_top/bottom and value_top may be lesser than value_bottom
-- device.shutter: Value for pos1 and pos2 can be set by parameter
+- device.shutter: Value and text for pos1 and pos2 can be set by parameter
 - basic.tank & icon.* (dynamic icons): min is now implemented and max may be lesser than min
 - device.dimmer: New parameters to specify pic and color and 'min_display' and 'max_display' like slider
 - device.rtr: New parameters to specify separate offset item and additional content
@@ -32,12 +37,15 @@
 - basic.checkbox & basic.flip: Value_on and value_off can be set by parameters
 - multimedia.slideshow: Fix items, add control buttons and reverse parameter
 - clock.miniclock: New parameter 'format'
+- status.notify: New items for title, signal, level and acknowledgement
 
 ### Other New Features
+- Inline documentation can be called directly in system menu now (i.e. w/o changing pages in configuration)
 - Allow pages selection by url parameter (e.g. index.php?pages=foo)
 - Configuration can be overridden per page and per client. Options stored in .ini now. Redesign of configuration page
 - Clear pagecache (by button and on disabling on configuration page)
 - New dropins folder to add custom extensions and overrides (see details in [README.md](./dropins/README.md) inside dropins/)
+- Custom widgets in a folder `widgets` inside own pages will be imported automatically (like in dropins)
 - Language files can be overridden. This allows regional variations and custom extensions. And they are stored in clearer ini format
 - Timezone is configurable now (was hardcoded to 'Europe/Berlin')
 - Configurable time source (show time of server or client)
@@ -47,6 +55,8 @@
 - New CalDav calendar service
 - Auto-loading of any .js file inside subfolder 'js' and any .css file inside 'css' in current pages folder
 - New driver for [ioBroker](http://www.iobroker.net)
+- New weather service [darksky.net](https://darksky.net/)
+- New Fritz!Box phone service using TR-064
 
 ### Improvements
 - Replaced make.php by on-the-fly minification (needs page cache set on)
@@ -56,11 +66,12 @@
 - Calendar coloring in configuration
 - Google calendar authorization on configuration page
 - Date format allows more patterns: l, D, j, F, M, n, G (the meaning is same as in php date function)
+- Notification corner shows messages ordered by severity
 
 ### Updated Libraries
 - jQuery Mobile to 1.4.5
 - jQuery to 2.1.4
-- Highcharts to 5.0.14, migrated to styled mode
+- Highcharts changed to Highstock (which includes Highcharts), updatet to 6.2.0 and migrated to styled mode
 
 ### Fixed Bugs
 - Changes were not visible immediate after saving configuration

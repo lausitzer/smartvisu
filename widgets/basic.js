@@ -7,44 +7,6 @@
  * -----------------------------------------------------------------------------
  */
 
-/**
- * Class for controlling all widgets.
- *
- * Concept:
- * --------
- * Every item has a name. The value of the item may be of type: int, float, or
- * array. The items are stored in the widget.buffer. The drivers will fill the
- * buffer through the widget.update (and therefore widget.set). Asynchronly
- * all widgets on a page may be updated. The update is been triggerd from
- * widget.update, if a item has been changed. Updates are only made if all
- * items are in buffer needed for that update. If one is missing the update is
- * not been made. If some plots placed on the page, the update will look if it
- * is possible to add only one point (if the widget is already initialized).
- *
- * Events:
- * -------
- * Some new events are introduced to control the widgets and there visual
- * appearance.
- *
- * 'update': function(event, response) { }
- * Triggered through widget.update if a item has been changed.
- *
- * 'draw': function (event) { }
- * Triggered only for svgs, if it is loaded
- *
- * 'point': function(event, response) { }
- * Triggered only for plots through widget.update if the plot is already drawn
- * and only a new point has to be added to the series.
- *
- * 'repeat': function(event) { }
- * Triggerd after the specified time, when 'data-repeat' ist been used.
- *
- * 'change', 'click' ...
- * Standard jquery-mobile events, triggered from the framework.
- *
- */
-
-
 // ----- basic.checkbox -------------------------------------------------------
 $.widget("sv.basic_checkbox", $.sv.widget, {
 
@@ -93,10 +55,10 @@ $.widget("sv.basic_color", $.sv.widget, {
 	options: {
 		min: "0",
 		max: "255",
-    style: '',
-    colormodel: 'rgb',
+		style: '',
+		colormodel: 'rgb',
 		step: 7,
-    colors: 10,
+		colors: 10,
 	},
 
   _mem: null,
@@ -257,7 +219,7 @@ $.widget("sv.basic_color_rect", $.sv.basic_color, {
 					}
 					else {
 						var oldColors = self._mem;//node.children('span').css('background-color').match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/).slice(1);
-						var diffCount = (values[0] != oldColors[0]) + (values[1] != oldColors[1]) + (values[2] != oldColors[2]) -1;
+						var diffCount = oldColors == null ? 3 : (values[0] != oldColors[0]) + (values[1] != oldColors[1]) + (values[2] != oldColors[2]) -1;
 						self._lockfor = diffCount; // lock widget to ignore next 2 updates
 						io.write(items[0], values[0]);
 						io.write(items[1], values[1]);
@@ -423,7 +385,7 @@ $.widget("sv.basic_color_disc", $.sv.basic_color, {
 						}
 						else {
 							var oldColors = self._mem;//node.children('span').css('background-color').match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/).slice(1);
-							var diffCount = (values[0] != oldColors[0]) + (values[1] != oldColors[1]) + (values[2] != oldColors[2]) -1;
+							var diffCount = oldColors == null ? 3 : (values[0] != oldColors[0]) + (values[1] != oldColors[1]) + (values[2] != oldColors[2]) -1;
 							self._lockfor = diffCount; // lock widget to ignore next 2 updates
 							io.write(items[0], values[0]);
 							io.write(items[1], values[1]);
@@ -503,7 +465,7 @@ $.widget("sv.basic_color_slider", $.sv.basic_color, {
 			}
 
 			var oldColors = this._mem;
-			var diffCount = (values[0] != oldColors[0]) + (values[1] != oldColors[1]) + (values[2] != oldColors[2]) -1;
+			var diffCount = oldColors == null ? 3 : (values[0] != oldColors[0]) + (values[1] != oldColors[1]) + (values[2] != oldColors[2]) -1;
 			this._lockfor = diffCount; // lock widget to ignore next 2 updates
 
 			if(diffCount > 0) {
@@ -534,11 +496,13 @@ $.widget("sv.basic_flip", $.sv.widget, {
 	},
 
 	_update: function(response) {
+		this._off( this.element, 'change' );
 		this.element.val(response[0]).flipswitch('refresh');
+		this._on( { 'change': this._events.change } );
 	},
 
 	_events: {
-    'change': function (event) {
+		'change': function (event) {
 			this._write(this.element.val());
 		}
 	}
@@ -722,7 +686,6 @@ $.widget("sv.basic_offset", $.sv.widget, {
 
 
 // ----- basic.print ----------------------------------------------------------
-//TODO: check time
 $.widget("sv.basic_print", $.sv.widget, {
 
 	initSelector: '[data-widget="basic.print"]',
@@ -738,14 +701,6 @@ $.widget("sv.basic_print", $.sv.widget, {
 		var format = this.options.format;
 		var formatLower = format.toLowerCase();
 		var formula = this.options.formula;
-
-		var type;
-		if (formatLower == 'date' || formatLower == 'time' || formatLower == 'short' || formatLower == 'long')
-			type = 'Date';
-		else if (formatLower == 'text' || formatLower == 'html' || formatLower == 'script')
-			type = 'String';
-		else
-			type = 'Number';
 
 		formula = formula.replace(/VAR(\d+)/g, 'VAR[$1-1]');
 
@@ -779,12 +734,22 @@ $.widget("sv.basic_print", $.sv.widget, {
 			notify.error("basic.print: Invalid formula", ex);
 		}
 
-		if(type == 'Date')
-			calc = new Date(calc).transUnit(format);
-		else if (type == 'Number' && !isNaN(calc))
-			calc = parseFloat(calc).transUnit(format);
-		else if (formatLower == 'script') // no output for format 'script'
-			calc = '';
+		var value; // value for threshold comparison
+		if (formatLower == 'date' || formatLower == 'time' || formatLower == 'short' || formatLower == 'long') { // Date
+			value = new Date(calc);
+			calc = value.transUnit(format);
+		}
+		else if (formatLower == 'script') { // Script
+			value = null;
+			calc = ''; // no output for format 'script'
+		}
+		else if (formatLower == 'text' || formatLower == 'html' || isNaN(calc)) { // String
+			value = calc;
+		}
+		else { // Number
+			value = parseFloat(calc);
+			calc = value.transUnit(format);
+		}
 
 		// print the result
 		if (formatLower == 'html')
@@ -795,18 +760,21 @@ $.widget("sv.basic_print", $.sv.widget, {
 		// colorize
 		var currentIndex = 0;
 		$.each(String(this.options.thresholds).explode(), function(index, threshold) {
-			if((isNaN(calc) || isNaN(threshold)) ? (threshold > calc) : (parseFloat(threshold) > parseFloat(calc)))
+			if((isNaN(value) || isNaN(threshold)) ? (threshold > value) : (parseFloat(threshold) > parseFloat(value)))
 				return false;
 			currentIndex++;
 		});
 		var color = String(this.options.colors).explode()[currentIndex];
-		if(color == '' || color == 'icon0')
-			this.element.removeClass('icon1').css('color', '');
-		else if (color == 'icon1')
-			this.element.addClass('icon1').css('color', '');
-		else
-			this.element.removeClass('icon1').css('color', color);
-	},
+		this.element.removeClass('icon1').show().css('visibility', '').css('color', ''); // clear previous color / effect
+		if (color == 'icon1')
+			this.element.addClass('icon1');
+		else if (color == 'hidden')
+			this.element.hide();
+		else if (color == 'blank')
+			this.element.css('visibility', 'hidden');
+		else if(color != '' && color != 'icon0')
+			this.element.css('color', color);
+	}
 });
 
 // ----- basic.shifter ---------------------------------------------------------
@@ -916,16 +884,21 @@ $.widget("sv.basic_shutter", $.sv.widget, {
 		});
 	},
 
+	_getVal(event) {
+		var max = this.options.max;
+		var min = this.options.min;
+		var step = this.options.step;
+
+		var offset = this.element.offset();
+		var x = event.pageX - offset.left;
+		var y = event.pageY - offset.top;
+		return Math.floor(y / this.element.outerHeight() * (max - min) / step) * step + min;
+	},
+
 	_events: {
 		'click': function (event) {
-			var max = this.options.max;
-			var min = this.options.min;
-			var step = this.options.step;
-
-			var offset = this.element.offset();
-			var x = event.pageX - offset.left;
-			var y = event.pageY - offset.top;
-			var val = Math.floor(y / this.element.outerHeight() * (max - min) / step) * step + min;
+			var val = this._getVal(event);
+			var x = event.pageX - this.element.offset().left;
 
 			var items = this.options.item.explode();
 			if (items[1] != '' && x > this.element.outerWidth() / 2) {
@@ -942,7 +915,11 @@ $.widget("sv.basic_shutter", $.sv.widget, {
 
 		'mouseleave': function (event) {
 			this.element.find('.control').fadeOut(400);
-		}
+		},
+
+		'mousemove': function (event) {
+			this.element.attr('title', this._getVal(event));
+		},
 	}
 
 });
@@ -965,45 +942,56 @@ $.widget("sv.basic_slider", $.sv.widget, {
 	_mem: null,
 	_timer: false,
 	_lock: false,
+	_sliding: false,
 
 	_update: function(response) {
-		this._lock = true;
+		var val = response[0];
 		var max = this.element.attr('max') * 1;
 		var min = this.element.attr('min') * 1;
 		var maxSend = this.options['max-send'];
 		var minSend = this.options['min-send'];
-		var val = response[0];
 		if(min != minSend || max != maxSend)
 			val = (val - minSend) / (maxSend - minSend) * (max - min) + min;
-		this.element.val(val).slider('refresh');
-		this._lock = false;
-		this._mem = this.element.val();
+		if(!this._sliding) {
+			this._lock = true;
+			this.element.val(val).slider('refresh');
+			this._mem = this.element.val();
+			this._lock = false;
+		}
+		else {
+			this._mem = val;
+		}
 	},
 
 	_events: {
+		'slidestart': function (event) {
+			this._sliding = true;
+		},
+
 		'slidestop': function (event) {
 			this._timer = false;
-			this._change();
+			this._sliding = false;
+			this._send();
 		},
 
 		'change': function (event) {
-			this._change();
+			this._send();
 		},
 	},
 
-	_change: function() {
-		if (!this._timer && !this._lock && this.element.val() != this._mem) {
+	_send: function() {
+		var val = this.element.val();
+		if (!this._lock && !this._timer && val != this._mem) {
 			this._timer = true;
-			this._mem = this.element.val();
+			this._mem = val;
 			var max = this.element.attr('max') * 1;
 			var min = this.element.attr('min') * 1;
 			var maxSend = this.options['max-send'];
 			var minSend = this.options['min-send'];
-			var val = this.element.val();
 			if(min != minSend || max != maxSend)
 				val = (val - min) / (max - min) * (maxSend - minSend) + minSend;
 			this._write(val);
-			this._delay(function() { if(this._timer) { this._timer = false; this._change(); } }, 400);
+			this._delay(function() { if(this._timer) { this._timer = false; this._send(); } }, 400);
 		}
 	}
 
@@ -1017,7 +1005,10 @@ $.widget("sv.basic_stateswitch", $.sv.widget, {
 	options: {
 		vals: '',
 		'indicator-type': '',
-		'indicator-duration': 3
+		'indicator-duration': 3,
+		itemLongpress: '',
+		valueLongpress: null,
+		valueLongrelease: null
 	},
 
 	_current_val: null, // current value (used to determin next value to send)
@@ -1025,52 +1016,80 @@ $.widget("sv.basic_stateswitch", $.sv.widget, {
 	_create: function() {
 		this._super();
 
-		this._on(this.element.find('a[data-widget="basic.stateswitch"]'), {
-			'click': function (event) {
-				// get the list of values
-				var list_val = String(this.options.vals).explode();
-				// get the index of the memorised value
-				var old_idx = list_val.indexOf(this._current_val);
-				// compute the next index
-				var new_idx = (old_idx + 1) % list_val.length;
-				// get next value
-				var new_val = list_val[new_idx];
-				// send the value to driver
-				io.write(this.options.item, new_val);
-				// memorise the value for next use
-				this._current_val = new_val;
+		var shortpressEvent = function(event) {
+			// get the list of values
+			var list_val = String(this.options.vals).explode();
+			// get the index of the memorised value
+			var old_idx = list_val.indexOf(this._current_val);
+			// compute the next index
+			var new_idx = (old_idx + 1) % list_val.length;
+			// get next value
+			var new_val = list_val[new_idx];
+			// send the value to driver
+			io.write(this.options.item, new_val);
+			// memorise the value for next use
+			this._current_val = new_val;
 
-				// activity indicator
-				var target = $(event.delegateTarget);
-				var indicatorType = this.options['indicator-type'];
-				var indicatorDuration = this.options['indicator-duration'];
-				if(indicatorType && indicatorDuration > 0) {
-					// add one time event to stop indicator
-					target.one('stopIndicator',function(event) {
-						clearTimeout(target.data('indicator-timer'));
-						event.stopPropagation();
-						var prevColor = target.attr('data-col');
-						if(prevColor != null) {
-							if(prevColor != 'icon1')
-								target.removeClass('icon1').find('svg').removeClass('icon1');
-							if(prevColor != 'blink')
-								target.removeClass('blink').find('svg').removeClass('blink');
-							if(prevColor == 'icon1' || prevColor == 'icon0')
-								prevColor = '';
-							target.css('color', prevColor).find('svg').css('fill', prevColor).css('stroke', prevColor);
-						}
-					})
-					// set timer to stop indicator after timeout
-					.data('indicator-timer', setTimeout(function() { target.trigger('stopIndicator') }, indicatorDuration*1000 ));
-					// start indicator
-					if(indicatorType == 'icon1' || indicatorType == 'icon0' || indicatorType == 'blink') {
-						target.addClass(indicatorType).find('svg').addClass(indicatorType);
-						indicatorType = '';
+			// activity indicator
+			var target = $(event.delegateTarget);
+			var indicatorType = this.options['indicator-type'];
+			var indicatorDuration = this.options['indicator-duration'];
+			if(indicatorType && indicatorDuration > 0) {
+				// add one time event to stop indicator
+				target.one('stopIndicator',function(event) {
+					clearTimeout(target.data('indicator-timer'));
+					event.stopPropagation();
+					var prevColor = target.attr('data-col');
+					if(prevColor != null) {
+						if(prevColor != 'icon1')
+							target.removeClass('icon1').find('svg').removeClass('icon1');
+						if(prevColor != 'blink')
+							target.removeClass('blink').find('svg').removeClass('blink');
+						if(prevColor == 'icon1' || prevColor == 'icon0')
+							prevColor = '';
+						target.css('color', prevColor).find('svg').css('fill', prevColor).css('stroke', prevColor);
 					}
-					target.css('color', indicatorType).find('svg').css('fill', indicatorType).css('stroke', indicatorType);
+				})
+				// set timer to stop indicator after timeout
+				.data('indicator-timer', setTimeout(function() { target.trigger('stopIndicator') }, indicatorDuration*1000 ));
+				// start indicator
+				if(indicatorType == 'icon1' || indicatorType == 'icon0' || indicatorType == 'blink') {
+					target.addClass(indicatorType).find('svg').addClass(indicatorType);
+					indicatorType = '';
 				}
+				target.css('color', indicatorType).find('svg').css('fill', indicatorType).css('stroke', indicatorType);
 			}
-		});
+		}
+
+		if(this.options.itemLongpress) {
+			this._on(this.element.find('a[data-widget="basic.stateswitch"]'), {
+				'tap': shortpressEvent,
+				'taphold': function (event) {
+					event.preventDefault();
+					event.stopPropagation();
+					if(this.options.valueLongpress != null) {
+						var value = this.options.valueLongpress;
+						if(!isNaN(this._current_val) && typeof value === 'string' && !isNaN(value) && (value.startsWith('+') || value.startsWith('-')))
+							value = Number(this._current_val) + Number(value);
+						io.write(this.options.itemLongpress, value);
+					}
+					if(this.options.valueLongrelease != null) {
+						var item = this.options.itemLongpress;
+						var value = this.options.valueLongrelease;
+						if(!isNaN(this._current_val) && typeof value === 'string' && !isNaN(value) && (value.startsWith('+') || value.startsWith('-')))
+							value = Number(this._current_val) + Number(value);
+						$(document).one('vmouseup', function(event) {
+							io.write(item, value);
+						});
+					}
+				}
+			});
+		}
+		else { // if no longpress item is passed, use shortpress event on click
+			this._on(this.element.find('a[data-widget="basic.stateswitch"]'), {
+				'click': shortpressEvent
+			});
+		}
 
 		// replicate ui-first-child and ui-last-child if first resp. last sibling of tag 'a' has it
 		if(this.element.children('a:first').hasClass('ui-first-child'))
@@ -1106,7 +1125,7 @@ $.widget("sv.basic_symbol", $.sv.widget, {
 
 	options: {
 		mode: '',
-		val: ''
+		val: '',
 	},
 
 	_update: function(response) {
@@ -1116,10 +1135,18 @@ $.widget("sv.basic_symbol", $.sv.widget, {
 
 		// legacy support
 		if(formula == 'or') {
-      formula = 'VAR';
+			formula = 'VAR';
 		}
 		else if(formula == 'and') {
-			formula = response.join(' == VAR[0] && ') + ' == VAR[0] ? VAR[0] : null';
+			// To fulfill "and" condition, every entry in response has to have the same value.
+			// If this is true, this one value will be returned and used for selecting the proper symbol.
+			formula = 'VAR.every(function(entry, i, arr) { return entry == arr[0] }) ? VAR[0] : null';
+		}
+
+		var asThreashold = false;
+		if(formula.startsWith('>')) {
+			formula = formula.length == 1 ? 'VAR' : formula.substring(1);
+			asThreashold = true;
 		}
 
 		formula = formula.replace(/VAR(\d+)/g, 'VAR[$1-1]');
@@ -1129,6 +1156,16 @@ $.widget("sv.basic_symbol", $.sv.widget, {
 		}
 		catch(ex) {
 			notify.error("basic.symbol: Invalid formula", ex);
+		}
+
+		if(asThreashold) {
+			var currentIndex = 0;
+			$.each(values, function(index, threshold) {
+				if(threshold === '' || ((isNaN(val) || isNaN(threshold)) ? (threshold > val) : (parseFloat(threshold) > parseFloat(val))))
+					return false;
+				currentIndex++;
+			});
+			val = values[currentIndex];
 		}
 
 		var filter = Array.isArray(val) ? '[data-val="'+val.join('"],[data-val="')+'"]' : '[data-val="'+(typeof val === 'boolean' ? Number(val) : val)+'"]';
@@ -1181,4 +1218,23 @@ $.widget("sv.basic_trigger", $.sv.widget, {
 		}
 	}
 
+});
+
+// ----- basic.listview ----------------------------------------------------------
+$.widget("sv.basic_listview", $.sv.widget, {
+         initSelector: '[data-widget="basic.listview"]',
+         options: {
+                size: "5"
+        },
+         _update: function(response) {
+                var size = this.options.size;
+                var line = '';
+                if (response[0] instanceof Array) {
+                        var list = response[0];
+                        for (var i = 0; i < list.length && i < size; i++) {
+                                line += '<li>' +  list[i]+ '</li>';
+                        }
+                        this.element.find('ul').html(line).listview('refresh');
+                }
+        },
 });
